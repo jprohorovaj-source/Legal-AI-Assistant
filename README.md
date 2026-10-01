@@ -1,654 +1,411 @@
 # Legal AI Assistant
 
-## Multi-Agent Legal Research, Evidence Verification and Document Drafting
+## AI-система для юридического исследования, поиска доказательств и подготовки правовых документов
 
-**Legal AI Assistant** — проект интеллектуальной системы для автоматизации первичного юридического исследования и подготовки юридических документов.
-
-Система объединяет несколько исследовательских контуров:
-
-1. **External Legal Sources Agent** — поиск и получение информации из внешних официальных и разрешённых источников.
-2. **Internal Legal Corpus Agent** — поиск по собственной проверенной юридической базе.
-3. **Global Legal Practice Agent** — поиск зарубежной правовой практики на языке оригинала, когда это требуется юридическим запросом.
-4. **Research Orchestrator & Legal Answer Agent** — объединение, фильтрация, проверка и интерпретация результатов всех исследовательских контуров.
-
-Финальный результат — не просто список найденных документов и не свободный ответ LLM.
-
-Система должна выдавать:
-
-* релевантный юридический ответ;
-* применимые нормы;
-* судебную практику;
-* условия и исключения;
-* альтернативные позиции;
-* точные цитаты из источников;
-* кликабельные ссылки на первоисточники;
-* информацию о редакции и дате документа;
-* ограничения и недостающие данные;
-* при необходимости — проект юридического документа.
+**Статус проекта:** пилотный прототип
+**Среда разработки:** GitHub + Google Colab
+**Цель:** создать работающий демонстрационный LegalTech-продукт, который показывает полный цикл юридического AI-поиска — от вопроса юриста до проверенного ответа с доказательной базой.
 
 ---
 
-# 1. Проблема
+# 1. Цель проекта
 
-Первичное юридическое исследование включает большое количество рутинных операций:
+Цель пилота — разработать не просто юридический чат-бот, а прототип **AI Research Assistant для юриста**.
+
+Система должна уметь:
+
+1. понять юридический вопрос;
+2. определить, какие источники необходимы;
+3. найти релевантные документы;
+4. выполнить гибридный поиск;
+5. отобрать наиболее релевантные фрагменты;
+6. сформировать доказательную базу;
+7. связать юридические утверждения с конкретными источниками;
+8. проверить наличие и корректность доказательств;
+9. сформировать структурированный юридический ответ;
+10. на основе проведённого исследования подготовить черновик юридического документа.
+
+Главный принцип проекта:
+
+> **LLM не является источником права. Источником юридического факта является проверяемый документ.**
+
+LLM используется для понимания запроса, планирования исследования, анализа найденных материалов и формирования ответа на основе доказательств.
+
+---
+
+# 2. Практическая польза
+
+Для юриста основная проблема заключается не только в генерации текста.
+
+Значительная часть работы состоит в том, чтобы:
+
+* найти нужную норму;
+* проверить редакцию документа;
+* учесть дату возникновения спорной ситуации;
+* найти судебную практику;
+* сравнить несколько правовых позиций;
+* проверить применимость нормы;
+* найти исключения;
+* сохранить ссылки на источники;
+* сформировать юридическую позицию;
+* затем превратить результат исследования в документ.
+
+Поэтому пилот ориентирован на сокращение именно исследовательской части работы.
+
+### Пользовательский сценарий
+
+Юрист задаёт:
+
+> Можно ли взыскать неустойку в данной ситуации, если договор заключён в одной редакции, а спор возник после изменения законодательства?
+
+Система должна не просто сгенерировать текст.
+
+Она должна:
 
 ```text
-Юридический вопрос
-        ↓
-Поиск законодательства
-        ↓
+Вопрос
+  ↓
+Понимание задачи
+  ↓
+Определение юрисдикции и даты
+  ↓
+Поиск нормативных источников
+  ↓
 Поиск судебной практики
-        ↓
+  ↓
+Гибридное ранжирование
+  ↓
+Извлечение доказательств
+  ↓
 Проверка редакции нормы
-        ↓
-Поиск дополнительных источников
-        ↓
-Чтение документов
-        ↓
-Сопоставление позиций
-        ↓
-Извлечение аргументов
-        ↓
-Проверка цитат
-        ↓
-Формирование правовой позиции
-        ↓
-Подготовка документа
+  ↓
+Claim → Evidence
+  ↓
+Юридический анализ
+  ↓
+Структурированный ответ
 ```
-
-При использовании обычной LLM появляется дополнительная проблема:
-
-```text
-LLM
- ↓
-правдоподобный ответ
- ↓
-вымышленная ссылка?
- ↓
-несуществующий судебный акт?
- ↓
-неправильная редакция нормы?
-```
-
-Для юридического применения такая ошибка критична.
-
-В августе 2026 года Право.ru сообщало о деле, в котором Суд по интеллектуальным правам обнаружил в процессуальном документе 12 ссылок на несуществующие судебные акты либо выводы, которых не было в указанных документах; в результате был назначен судебный штраф.
-
-Другой материал Право.ru от сентября 2026 года показывает, что суды отдельно обращают внимание на проверяемость источников и достоверность сведений, полученных с помощью ИИ.
-
-Поэтому центральная задача проекта:
-
-> **LLM не должна быть источником юридического факта. Источником является проверяемый документ, а LLM используется для поиска, сопоставления и формирования анализа на основе evidence.**
 
 ---
 
-# 2. Цель проекта
+# 3. Что именно создаём в пилоте
 
-Создать систему, которая автоматически выполняет большую часть первичного юридического исследования:
+Мы не пытаемся сразу построить коммерческую систему уровня крупных LegalTech-платформ.
+
+Пилот должен доказать работоспособность ключевой гипотезы:
+
+> **Можно построить воспроизводимый юридический research pipeline, в котором AI не просто генерирует ответ, а сначала собирает и проверяет доказательную базу.**
+
+Для демонстрационной версии достаточно ограниченного корпуса документов.
+
+Например:
+
+* нормативные акты по выбранной юридической области;
+* ограниченный набор судебных актов;
+* несколько документов для тестирования версионности;
+* небольшой набор иностранных материалов;
+* Golden Dataset с эталонными юридическими запросами.
+
+На первом этапе разумно выбрать **одну предметную область**, а не загружать всё российское законодательство.
+
+---
+
+# 4. Архитектура пилота
+
+В пилоте используется четыре логических AI-агента.
+
+Важно:
+
+> Это не четыре отдельные нейросети.
+
+Все агенты являются специализированными ролями единого orchestration pipeline.
+
+Одна LLM может использоваться для reasoning и generation, а специализированные модели применяются там, где они действительно нужны: embeddings и reranking.
+
+```text
+                         ЮРИСТ
+                           |
+                           v
+              AGENT 4 — ORCHESTRATOR
+                           |
+             +-------------+-------------+
+             |             |             |
+             v             v             v
+        AGENT 1        AGENT 2        AGENT 3
+        External       Internal        Global
+        Sources        Corpus          Practice
+             |             |             |
+             +-------------+-------------+
+                           |
+                           v
+                  Candidate Documents
+                           |
+                           v
+                Hybrid Retrieval
+                 FTS5/BM25 + E5
+                           |
+                           v
+                  FAISS / Vector Search
+                           |
+                           v
+                   CrossEncoder
+                    Reranking
+                           |
+                           v
+                   Evidence Builder
+                           |
+                           v
+                  Claim → Evidence
+                           |
+                           v
+                 Answer Verification
+                           |
+                           v
+                  Legal Reasoning
+                           |
+                           v
+                Structured Legal Answer
+                           |
+                           v
+                  Document Drafting
+```
+
+---
+
+# 5. Agent 1 — External Legal Sources
+
+Отвечает за работу с внешними источниками.
+
+В пилоте его задача:
+
+* получать документы из разрешённых внешних источников;
+* сохранять источник и URL;
+* фиксировать дату получения;
+* нормализовать текст;
+* определять метаданные;
+* рассчитывать content hash;
+* проверять, изменился ли документ;
+* передавать документы в индекс.
+
+Для демонстрационного проекта приоритет имеют официальные источники.
+
+Например:
+
+* официально опубликованные нормативные акты;
+* судебные документы;
+* разрешённые публичные источники.
+
+Важно:
+
+> Пилот не обходит CAPTCHA, авторизацию, rate limits или другие ограничения доступа.
+
+---
+
+# 6. Agent 2 — Internal Legal Corpus
+
+Это собственная база проекта.
+
+Она нужна для того, чтобы система могла работать не только с внешним поиском, но и с заранее проверенным корпусом.
+
+Пилотная архитектура:
+
+```text
+Documents
+    ↓
+Parser
+    ↓
+Normalizer
+    ↓
+Metadata
+    ↓
+SQLite
+    ↓
+FTS5 / BM25
+    +
+E5 Embeddings
+    ↓
+FAISS
+```
+
+Таким образом используется два типа поиска.
+
+### Lexical retrieval
+
+FTS5 / BM25 хорошо работает с:
+
+* номерами статей;
+* названиями документов;
+* юридическими терминами;
+* точными формулировками;
+* номерами дел.
+
+### Semantic retrieval
+
+Embeddings позволяют находить документы по смыслу, даже если формулировка запроса отличается от текста документа.
+
+### Hybrid retrieval
+
+Итоговый candidate pool формируется из обоих методов.
+
+---
+
+# 7. Agent 3 — Global Legal Practice
+
+Этот агент запускается только тогда, когда запрос требует иностранного права или международной практики.
+
+Например:
+
+```text
+Российский вопрос
+      ↓
+Определение необходимости foreign practice
+      ↓
+Формирование поискового запроса
+      ↓
+English / German / другой язык
+      ↓
+Поиск иностранных источников
+      ↓
+Original source
+      ↓
+Exact quote
+      ↓
+Translation
+```
+
+Важный принцип:
+
+> Перевод не заменяет оригинальный источник.
+
+В результате система должна хранить:
+
+* оригинальный текст;
+* перевод;
+* источник;
+* URL;
+* дату получения;
+* метаданные документа.
+
+---
+
+# 8. Agent 4 — Research Orchestrator
+
+Это центральный компонент системы.
+
+Он отвечает за то, чтобы юридический запрос превратить в последовательность исследовательских действий.
+
+Например:
+
+```text
+Пользовательский вопрос
+        ↓
+Query Understanding
+        ↓
+Определение:
+- юрисдикции
+- даты
+- области права
+- типа вопроса
+- необходимых источников
+        ↓
+Routing
+        ↓
+External / Internal / Global
+        ↓
+Retrieval
+        ↓
+Reranking
+        ↓
+Evidence
+        ↓
+Reasoning
+        ↓
+Verification
+        ↓
+Answer
+```
+
+Именно здесь используется опыт предыдущего проекта **GeniusScout**.
+
+В GeniusScout уже были реализованы важные для этого проекта идеи:
+
+* работа с RAG;
+* retrieval pipeline;
+* поиск по корпусу;
+* embeddings;
+* работа с векторным индексом;
+* reranking;
+* формирование ответа на основе найденного контекста;
+* оценка качества retrieval.
+
+В Legal AI Assistant эти идеи переносятся в более специализированную область:
+
+> **RAG превращается в evidence-grounded legal research pipeline.**
+
+---
+
+# 9. Главная особенность — Evidence Builder
+
+Обычный RAG может сделать:
 
 ```text
 Question
    ↓
-Research Planning
+Search
    ↓
-Multi-Source Retrieval
+Context
    ↓
-Filtering
+LLM
+   ↓
+Answer
+```
+
+В нашем проекте между retrieval и ответом появляется отдельный слой доказательств.
+
+```text
+Question
+   ↓
+Retrieval
    ↓
 Reranking
    ↓
-Evidence Extraction
+Evidence Builder
    ↓
-Legal Reasoning
+Claim → Evidence
    ↓
 Verification
    ↓
-Structured Answer
+LLM
    ↓
-Document Drafting
-```
-
-Юрист при этом получает не набор поисковых результатов, а подготовленную доказательную основу для дальнейшей профессиональной оценки.
-
----
-
-# 3. Главная концепция
-
-Legal AI Assistant использует четыре специализированных агента.
-
-```text
-                         LAWYER
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │       AGENT 4       │
-                │  RESEARCH           │
-                │  ORCHESTRATOR       │
-                └──────────┬──────────┘
-                           │
-             ┌─────────────┼─────────────┐
-             │             │             │
-             ▼             ▼             ▼
-        ┌─────────┐   ┌─────────┐   ┌─────────┐
-        │ AGENT 1 │   │ AGENT 2 │   │ AGENT 3 │
-        │External │   │Internal │   │ Global  │
-        │Sources  │   │ Corpus  │   │Practice │
-        └────┬────┘   └────┬────┘   └────┬────┘
-             │             │             │
-             ▼             ▼             ▼
-        Official       Internal       Foreign
-        sources        knowledge      sources
-             │             │             │
-             └─────────────┼─────────────┘
-                           ▼
-                    EVIDENCE LAYER
-                           │
-                           ▼
-                    VERIFICATION
-                           │
-                           ▼
-                    FINAL ANSWER
-                           │
-                           ▼
-                   DOCUMENT DRAFTING
-```
-
----
-
-# 4. Agent 1 — External Legal Sources Agent
-
-## Назначение
-
-Получение актуальной информации из внешних источников.
-
-Приоритет:
-
-1. официальные источники;
-2. государственные правовые порталы;
-3. официальные судебные источники;
-4. официальные публикации государственных органов;
-5. другие заранее разрешённые источники.
-
-В качестве одного из базовых источников российского законодательства может использоваться Официальный интернет-портал правовой информации.
-
-Портал содержит официальное опубликование правовых актов, тексты актов с изменениями и интегрированный банк «Законодательство России».
-
-## Pipeline
-
-```text
-External Source
-       ↓
-Fetch
-       ↓
-Parse
-       ↓
-Normalize
-       ↓
-Validate
-       ↓
-Metadata Extraction
-       ↓
-Version Detection
-       ↓
-Content Hash
-       ↓
-Provenance
-       ↓
-Local Corpus
-```
-
-Документ сохраняется вместе с:
-
-```text
-document_id
-title
-document_type
-number
-adoption_date
-publication_date
-effective_from
-effective_to
-revision_date
-source
-source_url
-retrieved_at
-content_hash
-parser_version
-text
-```
-
-## Важный принцип
-
-Внешний источник не становится автоматически доверенным только потому, что его нашла система.
-
-Сначала:
-
-```text
-External Document
-       ↓
-Validation
-       ↓
-Metadata
-       ↓
-Version
-       ↓
-Provenance
-       ↓
-Evidence
-```
-
----
-
-# 5. Agent 2 — Internal Legal Corpus Agent
-
-## Назначение
-
-Работа с собственной накопленной и проверенной юридической базой.
-
-Внутренний корпус может содержать:
-
-```text
-INTERNAL LEGAL CORPUS
-
-├── legislation
-├── court_decisions
-├── legal_documents
-├── previous_research
-├── company_documents
-└── private_corpus
-```
-
-Для MVP:
-
-```text
-SQLite
-+
-FTS5
-+
-FAISS
-+
-Embeddings
-```
-
-Для масштабирования:
-
-```text
-PostgreSQL
-+
-Qdrant / другой vector store
-```
-
-## Retrieval
-
-Используются два независимых поиска.
-
-### Lexical
-
-```text
-Query
- ↓
-SQLite FTS5
- ↓
-BM25
- ↓
-Candidate Documents
-```
-
-### Semantic
-
-```text
-Query
- ↓
-Embedding
- ↓
-FAISS
- ↓
-Semantic Candidates
-```
-
-После объединения:
-
-```text
-Lexical Candidates
-        +
-Semantic Candidates
-        ↓
-Candidate Pool
-        ↓
-CrossEncoder
-        ↓
-Reranking
-        ↓
-Top Evidence
-```
-
----
-
-# 6. Agent 3 — Global Legal Practice Agent
-
-Этот агент запускается **не для каждого запроса**, а когда пользовательский запрос действительно требует международного сравнения.
-
-Примеры:
-
-> «Сравни российское регулирование с немецким».
-
-> «Есть ли аналогичная практика в ЕС?»
-
-> «Покажи подход английских судов».
-
-> «Найди зарубежную судебную практику по этому вопросу».
-
-## Особенность
-
-Поиск выполняется на языке соответствующей правовой системы.
-
-```text
-Russian Query
-      ↓
-Legal Query Transformation
-      ↓
-English / German / other language
-      ↓
-Foreign Retrieval
-      ↓
-Original Source
-      ↓
-Exact Quote
-      ↓
-Translation
-      ↓
-Original Source Link
-```
-
-Система должна сохранять:
-
-* оригинальный текст;
-* перевод;
-* язык;
-* источник;
-* ссылку;
-* дату;
-* юрисдикцию;
-* реквизиты документа.
-
-Перевод не заменяет оригинальную цитату.
-
----
-
-# 7. Agent 4 — Research Orchestrator
-
-Это центральный компонент системы.
-
-Он не является просто LLM-чатом.
-
-Он отвечает за:
-
-1. понимание запроса;
-2. определение юрисдикции;
-3. определение даты;
-4. определение требуемых источников;
-5. построение research plan;
-6. запуск нужных агентов;
-7. объединение результатов;
-8. фильтрацию;
-9. reranking;
-10. построение evidence map;
-11. проверку утверждений;
-12. формирование результата;
-13. подготовку документа.
-
----
-
-# 8. Query Understanding
-
-Например, юрист пишет:
-
-> «Может ли работодатель взыскать с работника ущерб, причинённый в мае 2024 года? Найди российское законодательство и судебную практику. Дополнительно сравни с Германией».
-
-Agent 4 преобразует запрос в структурированную задачу:
-
-```text
-jurisdiction = Russia
-
-legal_area = labor_law
-
-event_date = 2024-05
-
-needs_legislation = true
-
-needs_case_law = true
-
-needs_foreign_practice = true
-
-foreign_jurisdiction = Germany
-
-task_type = legal_research
-```
-
----
-
-# 9. Dynamic Agent Routing
-
-Не каждый запрос требует всех трёх исследовательских агентов.
-
-Например:
-
-```text
-"Что означает статья 238 ТК РФ?"
-```
-
-может использовать:
-
-```text
-Agent 2
-   ↓
-Internal Corpus
-   ↓
-Agent 4
-```
-
-Если локальной информации недостаточно:
-
-```text
-Agent 2
-   ↓
-insufficient evidence
-   ↓
-Agent 1
-```
-
-Если юрист попросил немецкую практику:
-
-```text
-Agent 3
-```
-
-Таким образом:
-
-```text
-Simple Query
-    ↓
-minimum required agents
-
-Complex Query
-    ↓
-multiple research agents
-```
-
-Это снижает latency и вычислительные затраты.
-
----
-
-# 10. Multi-Source Retrieval
-
-Полный pipeline:
-
-```text
-                         USER QUERY
-                              │
-                              ▼
-                     QUERY UNDERSTANDING
-                              │
-                              ▼
-                       RESEARCH PLAN
-                              │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-          External         Internal         Global
-           Agent             Agent           Agent
-              │               │               │
-              ▼               ▼               ▼
-        Official sources    Local DB      Foreign sources
-              │               │               │
-              └───────────────┼───────────────┘
-                              ▼
-                       Candidate Pool
-                              │
-                              ▼
-                     Hybrid Retrieval
-                              │
-                              ▼
-                      CrossEncoder
-                       Reranking
-                              │
-                              ▼
-                      Evidence Builder
-                              │
-                              ▼
-                       Legal Reasoning
-                              │
-                              ▼
-                     Answer Verification
-```
-
----
-
-# 11. Version-Aware Retrieval
-
-Юридический поиск должен учитывать не только документ, но и его редакцию.
-
-Например:
-
-```text
-event_date = 2024-05-15
-```
-
-Имеются:
-
-```text
-Version A
-effective_from = 2023-01-01
-effective_to   = 2024-07-01
-
-Version B
-effective_from = 2024-07-01
-```
-
-Для события 15.05.2024 выбирается Version A.
-
-Формально:
-
-```text
-effective_from <= event_date
-AND
-event_date < effective_to
-```
-
-Это позволит реализовать:
-
-* исторический retrieval;
-* хранение редакций;
-* отслеживание изменений;
-* переиндексацию изменившихся документов;
-* проверку временной применимости нормы.
-
----
-
-# 12. Provenance
-
-Каждый документ должен иметь происхождение.
-
-```text
-source_type
-source_name
-source_url
-retrieved_at
-publication_date
-revision_date
-document_id
-content_hash
-parser_version
-```
-
-Результат можно проследить:
-
-```text
 Answer
-  ↓
-Claim
-  ↓
-Evidence
-  ↓
-Document
-  ↓
-Document Version
-  ↓
-Source
-  ↓
-Retrieved At
 ```
 
-Это делает результат воспроизводимым.
+Evidence Builder не должен придумывать цитаты.
 
----
+Он извлекает точный фрагмент из сохранённого документа.
 
-# 13. Evidence Builder
-
-Evidence Builder не должен генерировать цитаты.
-
-Он должен **извлекать точный фрагмент из сохранённого документа**.
+Например:
 
 ```text
-document_id
-document_title
-article
-revision_date
-source_url
-exact_quote
-source_text
-relevance_score
-retrieval_metadata
-```
+Claim:
+"К определённой ситуации применяется статья X."
 
-Пример:
-
-```text
-CLAIM
-
-Работодатель вправе ...
-
-EVIDENCE
-
-"точный фрагмент документа..."
-
-SOURCE
-
-ТК РФ, статья ...
-
-VERSION
-
-Редакция от ...
-
-SOURCE URL
-
-[Открыть первоисточник]
+Evidence:
+document_id: ...
+article: ...
+revision_date: ...
+exact_quote: "..."
+source_url: ...
+content_hash: ...
 ```
 
 ---
 
-# 14. Claim → Evidence Graph
+# 10. Claim → Evidence
 
-Каждое существенное утверждение связывается с evidence.
+Каждое существенное юридическое утверждение должно иметь доказательную опору.
+
+Концептуально:
 
 ```text
 CLAIM 1
@@ -662,140 +419,194 @@ CLAIM 3
  └── NO SUFFICIENT EVIDENCE
 ```
 
-Если evidence недостаточно:
+Если система не может найти достаточное доказательство, она не должна маскировать отсутствие данных уверенным текстом.
+
+Возможные действия:
 
 ```text
-Claim
-  ↓
-Evidence not found
-  ↓
-Additional retrieval
-  ↓
-Evidence found?
- ├── YES → verify → include
- └── NO  → uncertainty / exclude
+Evidence отсутствует
+        ↓
+Повторный поиск
+        ↓
+Дополнительный источник
+        ↓
+Если доказательств всё ещё нет
+        ↓
+UNSUPPORTED / LOW CONFIDENCE
 ```
 
-Это принципиально важно.
-
-Система не должна превращать отсутствие evidence в уверенное юридическое утверждение.
+Это один из ключевых принципов проекта.
 
 ---
 
-# 15. Answer Verification
+# 11. Version-aware Retrieval
 
-После генерации ответа запускается отдельная проверка.
+Для юридической системы важна не только норма, но и **редакция нормы на нужную дату**.
 
-## Проверяем:
+Поэтому документ хранится вместе с временными метаданными:
 
-### Citation verification
+```text
+document_id
+title
+number
+adoption_date
+publication_date
+effective_from
+effective_to
+revision_date
+status
+jurisdiction
+article
+source
+source_url
+retrieved_at
+content_hash
+```
 
-Существует ли указанная цитата в исходном документе?
+При исследовании вопроса на дату:
 
-### Metadata verification
+```text
+effective_from <= event_date
+AND
+event_date < effective_to
+```
 
-Совпадают ли:
+Это позволяет избежать ситуации, когда современная редакция закона ошибочно применяется к историческому спору.
+
+---
+
+# 12. Provenance
+
+Для каждого результата сохраняется происхождение информации.
+
+```text
+Answer
+  ↓
+Claim
+  ↓
+Evidence
+  ↓
+Document
+  ↓
+Version
+  ↓
+Source
+  ↓
+Retrieved At
+```
+
+Минимальная provenance-модель:
+
+```text
+source_type
+source_name
+source_url
+retrieved_at
+publication_date
+revision_date
+document_id
+content_hash
+parser_version
+```
+
+Таким образом можно ответить не только на вопрос:
+
+> «Что сказала система?»
+
+но и:
+
+> «На каком документе и какой редакции основан этот вывод?»
+
+---
+
+# 13. Answer Verification
+
+Перед выдачей ответа система выполняет техническую проверку.
+
+### 1. Citation verification
+
+Проверяется, существует ли приведённая цитата в исходном документе.
+
+### 2. Metadata verification
+
+Проверяются:
 
 * название;
 * номер;
 * статья;
 * дата;
-* суд;
-* номер дела?
+* номер дела;
+* источник.
 
-### URL verification
+### 3. URL verification
 
-Ведёт ли ссылка на соответствующий источник?
+Проверяется наличие корректной ссылки на источник.
 
-### Evidence support
+### 4. Evidence support
 
-Действительно ли приведённый фрагмент подтверждает утверждение?
+Проверяется, действительно ли найденный фрагмент относится к утверждению.
 
-### Version verification
+### 5. Version verification
 
-Используется ли редакция, действовавшая на нужную дату?
+Проверяется соответствие редакции документа исследуемой дате.
 
-### Coverage
+### 6. Coverage
 
-Есть ли существенные утверждения без evidence?
+Ищутся существенные утверждения, которые остались без доказательств.
 
----
+Важно:
 
-# 16. Важное ограничение
+> Техническая проверка цитаты не доказывает правильность юридической интерпретации.
 
-Техническая проверка цитаты не доказывает юридическую правильность интерпретации.
+Поэтому в системе отдельно существуют:
 
-Например:
-
-```text
-Citation exists
-       ↓
-YES
-
-Metadata correct
-       ↓
-YES
-
-Quote exists
-       ↓
-YES
-```
-
-Это ещё не означает:
-
-```text
-Legal interpretation = definitely correct
-```
-
-Поэтому система должна разделять:
-
-```text
-Source Verification
-```
+**Source Verification**
 
 и
 
-```text
-Legal Interpretation
-```
+**Legal Reasoning**.
 
 ---
 
-# 17. Формат итогового ответа
+# 14. Структура ответа
 
-Юрист получает:
+Пилот будет формировать структурированный результат:
 
 ```text
-1. Краткий вывод
+Краткий вывод
 
-2. Применимые нормы
+Применимое законодательство
 
-3. Условия применения
+Условия применения
 
-4. Исключения
+Исключения
 
-5. Судебная практика
+Судебная практика
 
-6. Основная правовая позиция
+Основная правовая позиция
 
-7. Альтернативные позиции
+Альтернативные позиции
 
-8. Факторы, которые могут изменить вывод
+Факторы, способные изменить вывод
 
-9. Доказательная база
+Доказательства
 
-10. Источники
+Источники
 
-11. Ограничения анализа
+Ограничения
 ```
 
-Каждое существенное утверждение должно быть связано с evidence.
+Главное отличие от обычного chatbot output:
+
+> Ответ является результатом research pipeline, а не только генерации LLM.
 
 ---
 
-# 18. Подготовка юридических документов
+# 15. Подготовка юридических документов
 
-Legal AI Assistant должен уметь использовать результат исследования для создания документов.
+После завершения исследования Agent 4 может переключиться из режима Research в режим Drafting.
+
+Pipeline:
 
 ```text
 Research
@@ -810,189 +621,135 @@ Document Structure
    ↓
 Draft
    ↓
-Verification
+Citation Verification
    ↓
 Final Document
 ```
 
-Потенциальные типы документов:
+В пилоте можно продемонстрировать подготовку:
 
-* договор;
-* дополнительное соглашение;
-* претензия;
-* ответ на претензию;
-* исковое заявление;
-* отзыв;
-* ходатайство;
-* жалоба;
-* правовое заключение;
-* юридическая записка;
-* письмо;
-* сравнительный анализ редакций документа.
+* претензии;
+* ответа на претензию;
+* юридической записки;
+* проекта договора;
+* отдельных договорных положений;
+* процессуального документа.
+
+Документ должен строиться на результатах исследования, а не генерироваться независимо от evidence layer.
 
 ---
 
-# 19. Безопасная генерация документов
+# 16. Технологический стек пилота
 
-Документ не должен строиться исключительно на «памяти» LLM.
+Проект сознательно проектируется под бесплатную инфраструктуру.
 
-Pipeline:
-
-```text
-User Request
-      ↓
-Research
-      ↓
-Verified Evidence
-      ↓
-Legal Position
-      ↓
-Document Draft
-      ↓
-Citation Verification
-      ↓
-Document
-```
-
-Если в документе обнаруживается неподтверждённое юридическое утверждение:
-
-```text
-Unsupported Claim
-       ↓
-Re-retrieval
-       ↓
-Evidence?
-   ├── YES → update
-   └── NO  → remove / flag
-```
-
----
-
-# 20. Технологический стек MVP
-
-Проект можно начать без платных API.
-
-## Backend
+### Основной стек
 
 ```text
 Python
 FastAPI
 Pydantic
-```
-
-## Retrieval
-
-```text
 SQLite
-SQLite FTS5
-FAISS
+FTS5 / BM25
 Sentence Transformers
 E5 embeddings
+FAISS
 CrossEncoder
-```
-
-## LLM
-
-Локальная модель через:
-
-```text
-Ollama
-```
-
-## UI
-
-```text
-Gradio
-```
-
-## Evaluation
-
-```text
-pytest
-scikit-learn
-custom evaluation scripts
-```
-
-## Documents
-
-```text
 PyMuPDF
 python-docx
 BeautifulSoup
-OCR — при необходимости
-```
-
-## Deployment
-
-```text
-Docker
+pytest
+Git
 GitHub
+Google Colab
 ```
+
+LLM используется как единая генеративная модель для reasoning/generation.
+
+При этом retrieval и evidence pipeline не зависят от способности LLM «знать закон».
 
 ---
 
-# 21. Бесплатный MVP
+# 17. Где запускается пилот
 
-Первую версию можно реализовать локально.
+Локальный компьютер имеет только 8 GB RAM.
+
+Поэтому тяжёлые вычисления не являются обязательной частью локальной среды.
+
+## GitHub
+
+Используется для:
+
+* исходного кода;
+* структуры проекта;
+* README;
+* тестов;
+* Golden Dataset;
+* небольшого демонстрационного корпуса;
+* результатов экспериментов;
+* версионирования.
+
+## Google Colab
+
+Используется для:
+
+* подготовки корпуса;
+* embeddings;
+* построения FAISS index;
+* экспериментов с retrieval;
+* CrossEncoder reranking;
+* evaluation;
+* тестирования одной генеративной модели.
+
+## Локальный компьютер
+
+Используется в основном для:
+
+* Git;
+* просмотра кода;
+* небольших тестов;
+* работы с GitHub.
+
+Таким образом, пилот не требует мощной рабочей станции или локального GPU.
+
+---
+
+# 18. Почему мы начинаем именно с одной модели
+
+Пилот не должен превращаться в инфраструктурный проект.
+
+Поэтому:
 
 ```text
-Local Computer
-
-├── Python
-├── SQLite
-├── FTS5
-├── FAISS
-├── E5
-├── CrossEncoder
-├── Ollama
-└── Gradio
+1 LLM
++
+1 embedding model
++
+1 reranker
++
+4 логических агента
 ```
 
-Не требуется сразу:
+Этого достаточно для демонстрации архитектуры.
 
-* облачный GPU;
-* Kubernetes;
-* микросервисная архитектура;
-* большой vector database;
-* платная LLM;
-* коммерческая юридическая база.
+Агенты — это не четыре независимые модели.
+
+Они представляют разные этапы reasoning и retrieval pipeline.
+
+Это позволяет сначала доказать архитектурную гипотезу, а затем при необходимости заменить отдельные компоненты.
 
 ---
 
-# 22. MVP Corpus
+# 19. Golden Dataset
 
-Не нужно начинать со всего российского законодательства.
+Для проверки качества создаётся небольшой экспертно проверенный набор юридических вопросов.
 
-Для доказательства архитектуры достаточно ограниченного проверенного корпуса.
-
-Например:
-
-```text
-MVP
-
-100–500 нормативных документов
-+
-ограниченный корпус судебных актов
-+
-10–30 иностранных документов
-+
-30–50 экспертно подготовленных тестовых запросов
-```
-
-После проверки pipeline корпус постепенно расширяется.
-
----
-
-# 23. Golden Dataset
-
-Для оценки качества создаётся набор юридических вопросов.
-
-Каждый вопрос содержит:
+Каждая запись может содержать:
 
 ```text
 query
 jurisdiction
-date
+event_date
 expected_documents
 expected_chunks
 expected_evidence
@@ -1002,907 +759,261 @@ expected_source
 Например:
 
 ```text
-Query:
-...
+Query
+    ↓
+Какая редакция нормы применялась
+на дату возникновения спора?
 
-Jurisdiction:
-Russia
-
-Event date:
-2024-05-15
-
-Relevant documents:
-...
-
-Relevant evidence:
-...
-
-Expected source:
-...
+Expected:
+- document_id
+- article
+- version
+- evidence
 ```
+
+Golden Dataset становится основой объективной оценки системы.
 
 ---
 
-# 24. Метрики
-
-## Retrieval
-
-```text
-Precision@K
-Recall@K
-MRR
-NDCG@K
-```
-
-## Reranking
-
-```text
-Recall@K
-MRR
-NDCG@K
-```
-
-## Evidence
-
-```text
-Citation Accuracy
-Citation Completeness
-Source Correctness
-URL Correctness
-Evidence Support
-```
-
-## Generation
-
-```text
-Groundedness
-Factual Consistency
-Legal Basis Coverage
-Conditions Coverage
-Exception Coverage
-Unsupported Claim Rate
-```
-
-## Data Pipeline
-
-```text
-Sync Success Rate
-Documents Added
-Documents Changed
-Version Correctness
-Parsing Errors
-```
-
-## Performance
-
-```text
-Latency
-RAM
-Index Size
-Inference Time
-```
-
----
-
-# 25. Source Freshness
-
-Система должна знать, насколько свеж её корпус.
-
-```text
-last_successful_sync
-last_document_update
-documents_added
-documents_changed
-documents_removed
-sync_status
-```
-
-Если внешний источник временно недоступен:
-
-```text
-External Source
-      ↓
-ERROR
-      ↓
-Keep previous verified corpus
-      ↓
-Record failure
-      ↓
-Retry later
-```
-
-Предыдущая проверенная версия не должна автоматически удаляться.
-
----
-
-# 26. Архитектура данных
-
-```text
-                    SOURCES
-                       │
-          ┌────────────┼────────────┐
-          ▼            ▼            ▼
-       External      Internal      Global
-          │            │            │
-          └────────────┼────────────┘
-                       ▼
-                    INGESTION
-                       │
-                       ▼
-                  NORMALIZATION
-                       │
-                       ▼
-             VERSION + PROVENANCE
-                       │
-                       ▼
-                LOCAL LEGAL CORPUS
-                       │
-             ┌─────────┴─────────┐
-             ▼                   ▼
-           FTS5              Embeddings
-             │                   │
-             ▼                   ▼
-          BM25                 FAISS
-             │                   │
-             └─────────┬─────────┘
-                       ▼
-                  RERANKING
-                       │
-                       ▼
-                  EVIDENCE
-                       │
-                       ▼
-                  REASONING
-                       │
-                       ▼
-                 VERIFICATION
-                       │
-              ┌────────┴────────┐
-              ▼                 ▼
-           ANSWER           DOCUMENT
-```
-
----
-
-# 27. Структура GitHub
-
-```text
-legal-ai-assistant/
-│
-├── ingestion/
-│   ├── adapters/
-│   │   ├── base.py
-│   │   ├── pravo.py
-│   │   ├── judicial.py
-│   │   └── global_sources.py
-│   ├── parsers/
-│   ├── normalizers/
-│   └── versioning/
-│
-├── agents/
-│   ├── external_agent.py
-│   ├── internal_agent.py
-│   ├── global_agent.py
-│   └── orchestrator.py
-│
-├── retrieval/
-│   ├── lexical.py
-│   ├── semantic.py
-│   ├── hybrid.py
-│   └── reranker.py
-│
-├── evidence/
-│   ├── builder.py
-│   ├── claim_graph.py
-│   └── verifier.py
-│
-├── reasoning/
-│   ├── planner.py
-│   ├── analyzer.py
-│   └── answer.py
-│
-├── drafting/
-│   ├── templates/
-│   ├── generator.py
-│   └── verifier.py
-│
-├── storage/
-│   ├── database.py
-│   └── vector_store.py
-│
-├── evaluation/
-│   ├── dataset.py
-│   ├── retrieval_metrics.py
-│   ├── evidence_metrics.py
-│   └── evaluation.py
-│
-├── api/
-│   └── main.py
-│
-├── ui/
-│   └── app.py
-│
-├── tests/
-│
-├── data/
-│
-├── docs/
-│
-├── Dockerfile
-├── requirements.txt
-└── README.md
-```
-
----
-
-# 28. Roadmap
-
-## Phase 1 — Research Core
-
-```text
-[ ] Project structure
-[ ] SQLite schema
-[ ] Document model
-[ ] Source metadata
-[ ] Basic ingestion
-[ ] Text normalization
-```
-
-## Phase 2 — Internal Retrieval
-
-```text
-[ ] SQLite FTS5
-[ ] BM25
-[ ] E5 embeddings
-[ ] FAISS
-[ ] Hybrid retrieval
-[ ] CrossEncoder
-```
-
-## Phase 3 — External Agent
-
-```text
-[ ] Source adapters
-[ ] External retrieval
-[ ] Metadata extraction
-[ ] Version detection
-[ ] Provenance
-[ ] Content hash
-```
-
-## Phase 4 — Global Agent
-
-```text
-[ ] Language detection
-[ ] Legal query transformation
-[ ] Foreign retrieval
-[ ] Original-language evidence
-[ ] Translation
-```
-
-## Phase 5 — Evidence Layer
-
-```text
-[ ] Exact quote extraction
-[ ] Claim extraction
-[ ] Claim → Evidence graph
-[ ] Citation verification
-[ ] URL verification
-[ ] Version verification
-```
-
-## Phase 6 — Orchestrator
-
-```text
-[ ] Query understanding
-[ ] Research planning
-[ ] Agent routing
-[ ] Candidate merging
-[ ] Relevance filtering
-[ ] Legal reasoning
-```
-
-## Phase 7 — Document Drafting
-
-```text
-[ ] Document templates
-[ ] Research-grounded drafting
-[ ] Citation verification
-[ ] DOCX export
-[ ] PDF export
-```
-
-## Phase 8 — Evaluation
-
-```text
-[ ] Golden Dataset
-[ ] Retrieval metrics
-[ ] Evidence metrics
-[ ] Generation metrics
-[ ] Regression tests
-```
-
-## Phase 9 — UI
-
-```text
-[ ] Gradio interface
-[ ] Source panel
-[ ] Evidence panel
-[ ] Citation links
-[ ] Research status
-[ ] Document generation
-```
-
----
-
-# 29. Как запустить MVP
-
-## Требования
-
-Минимально:
-
-```text
-Python 3.11+
-Git
-8–16 GB RAM
-```
-
-Для локальной LLM желательно:
-
-```text
-16+ GB RAM
-```
-
-GPU не является обязательным для первого прототипа.
-
----
-
-## Установка
-
-Клонировать репозиторий:
-
-```bash
-git clone <repository-url>
-cd legal-ai-assistant
-```
-
-Создать виртуальное окружение:
-
-```bash
-python -m venv .venv
-```
-
-Активировать:
-
-### Windows
-
-```bash
-.venv\Scripts\activate
-```
-
-### Linux / WSL
-
-```bash
-source .venv/bin/activate
-```
-
-Установить зависимости:
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-# 30. Запуск локальной LLM
-
-Установить Ollama.
-
-После установки проверить:
-
-```bash
-ollama --version
-```
-
-Затем загрузить выбранную локальную модель:
-
-```bash
-ollama pull <model>
-```
-
-Конкретная модель выбирается после тестирования на юридическом Golden Dataset.
-
-Критерии выбора:
-
-* качество русского языка;
-* качество reasoning;
-* factual consistency;
-* способность работать с evidence;
-* latency;
-* RAM/VRAM;
-* лицензия.
-
----
-
-# 31. Запуск API
-
-```bash
-uvicorn api.main:app --reload
-```
-
-После запуска API предоставляет endpoint для research-запросов.
-
-Пример логики:
-
-```text
-POST /research
-```
-
-Вход:
-
-```json
-{
-    "query": "Юридический вопрос",
-    "jurisdiction": "RU",
-    "event_date": "2024-05-15",
-    "include_foreign": false
-}
-```
-
----
-
-# 32. Запуск UI
-
-```bash
-python ui/app.py
-```
-
-Интерфейс должен позволять:
-
-```text
-1. Ввести юридический вопрос
-2. Указать юрисдикцию
-3. Указать дату события
-4. Запросить судебную практику
-5. Запросить зарубежную практику
-6. Получить research result
-7. Открыть evidence
-8. Перейти к первоисточнику
-9. Создать юридический документ
-```
-
----
-
-# 33. Пример пользовательского сценария
-
-Юрист:
-
-> Может ли работодатель взыскать с работника ущерб, причинённый имуществу компании в мае 2024 года? Найди российское законодательство и судебную практику. Дополнительно сравни с Германией.
-
-Система:
-
-```text
-QUERY UNDERSTANDING
-
-Jurisdiction: Russia
-Event date: 2024-05
-Legal area: Labour Law
-Case law: required
-Foreign practice: Germany
-```
-
-Далее:
-
-```text
-AGENT 1
-Russian external sources
-
-AGENT 2
-Internal legal corpus
-
-AGENT 3
-German legal practice
-```
-
-После чего Agent 4:
-
-```text
-Merge
- ↓
-Deduplicate
- ↓
-Filter
- ↓
-Rerank
- ↓
-Evidence
- ↓
-Verify
- ↓
-Reason
-```
-
-Результат:
-
-```text
-LEGAL CONCLUSION
-
-...
-
-LEGAL BASIS
-
-...
-
-CASE LAW
-
-...
-
-GERMAN COMPARISON
-
-...
-
-EVIDENCE
-
-...
-
-LIMITATIONS
-
-...
-```
-
-И:
-
-```text
-[Open source]
-[Open exact citation]
-[Create legal memo]
-[Create draft claim]
-```
-
----
-
-# 34. Что проект не обещает
-
-Legal AI Assistant не должен заявлять:
-
-* 100% юридическую точность;
-* полное покрытие законодательства;
-* полное покрытие судебной практики;
-* абсолютную актуальность;
-* отсутствие ошибок LLM;
-* замену юриста;
-* автоматическое принятие юридического решения.
-
-Корректная формулировка:
-
-> **Legal AI Assistant автоматически выполняет первичное юридическое исследование на основе подключённого и версионируемого корпуса источников, использует внешние источники для получения и актуализации информации, формирует доказательную базу и технически проверяет согласованность результата. Окончательная юридическая оценка и решение остаются за профессиональным пользователем.**
-
----
-
-# 35. Что реально реализуется бесплатно
-
-На первом этапе без коммерческих API можно реализовать:
-
-```text
-Python
-SQLite
-FTS5
-FAISS
-E5 embeddings
-CrossEncoder
-Ollama
-Gradio
-FastAPI
-pytest
-Docker
-```
-
-Также можно построить:
-
-```text
-Agent 1
-Agent 2
-Agent 3
-Agent 4
-
-+
-Hybrid Retrieval
-+
-Reranking
-+
-Evidence Builder
-+
-Claim Verification
-+
-Versioning
-+
-Provenance
-+
-Document Drafting
-```
-
-Ограничение бесплатного MVP — прежде всего **размер и полнота корпуса**, вычислительные ресурсы и доступность автоматизированного получения конкретных внешних источников.
-
----
-
-# 36. Что потребуется при финансировании
-
-После доказательства MVP система может масштабироваться.
-
-### Infrastructure
-
-```text
-Local SQLite
-      ↓
-PostgreSQL
-```
-
-```text
-FAISS
-      ↓
-Qdrant / другой production vector store
-```
-
-### Models
-
-```text
-Small local LLM
-      ↓
-larger local / hosted / hybrid models
-```
-
-### Data
-
-```text
-Small verified corpus
-      ↓
-Large continuously updated corpus
-```
-
-### Processing
-
-```text
-Manual / scheduled ingestion
-      ↓
-Distributed ingestion
-      ↓
-Incremental indexing
-```
-
-### Enterprise
-
-```text
-Public Legal Corpus
-        +
-Private Company Corpus
-        +
-RBAC
-        +
-Audit Logs
-        +
-Data Isolation
-```
-
----
-
-# 37. Private Legal Corpus
-
-Отдельный enterprise-контур:
-
-```text
-Company Documents
-       ↓
-PDF / DOCX / Scan
-       ↓
-Parser / OCR
-       ↓
-Cleaning
-       ↓
-Chunking
-       ↓
-Metadata
-       ↓
-Embeddings
-       ↓
-Private Index
-```
-
-Публичный и частный корпуса не должны смешиваться без явных правил доступа.
-
-```text
-PUBLIC CORPUS
-       │
-       │
-       ├── legislation
-       └── case law
-
-PRIVATE CORPUS
-       │
-       ├── contracts
-       ├── claims
-       ├── correspondence
-       └── internal documents
-```
-
----
-
-# 38. Security
-
-Production-версия должна предусматривать:
-
-* authentication;
-* RBAC;
-* audit logging;
-* private corpus isolation;
-* access control;
-* encrypted storage;
-* controlled external API access;
-* temporary-file cleanup;
-* source provenance;
-* document-level permissions.
-
-Конфиденциальные документы не должны автоматически отправляться во внешние LLM/API.
-
----
-
-# 39. Главный технический принцип
-
-```text
-LLM ≠ Source of Law
-```
-
-Вместо этого:
-
-```text
-SOURCE
-  ↓
-DOCUMENT
-  ↓
-VERSION
-  ↓
-EVIDENCE
-  ↓
-LEGAL REASONING
-  ↓
-VERIFICATION
-  ↓
-ANSWER
-```
-
-LLM выполняет интеллектуальную обработку.
-
-Источник юридического факта остаётся проверяемым документом.
-
----
-
-# 40. Конкурентная среда
-
-Российский рынок уже имеет сильные системы правовой информации и AI-сервисы.
-
-Поэтому Legal AI Assistant не позиционируется как «первый AI для юристов».
-
-## КонсультантПлюс
-
-КонсультантПлюс в 2026 году развивает три AI-сервиса: «Задать вопрос», «Глубокий поиск» и «Проверка договоров». «Глубокий поиск» анализирует НПА и судебную практику и формирует структурированный правовой анализ с рекомендациями и ссылками.
-
-## ГАРАНТ / ИСКРА
-
-ИСКРА уже умеет:
-
-* отвечать на вопросы по российскому законодательству;
-* создавать правовые документы;
-* анализировать судебную практику;
-* работать с нормативно-технической документацией;
-* продолжать диалог;
-* сохранять результаты.
-
-Сервис позиционируется как AI-решение, работающее на многомиллионном информационном банке ГАРАНТ.
-
-## Caselook
-
-Caselook специализируется на поиске и анализе судебной практики. Публично заявлены около 140 млн документов, многочисленные фильтры, мониторинг практики, AI-поиск, AI-сводки, AI-доводы и AI-ассистент для анализа судебных актов.
-
-## Casebook
-
-Casebook относится к смежному сегменту судебной аналитики: мониторинг дел, анализ судебной активности и информации о компаниях, работа с судебными данными и оценкой рисков.
-
-## Официальные государственные источники
-
-Официальный интернет-портал правовой информации предоставляет официальное опубликование правовых актов, тексты актов с изменениями и интегрированный банк «Законодательство России».
-
----
-
-# 41. Реалистичное отличие Legal AI Assistant
-
-Важно не утверждать:
-
-> «У конкурентов этого нет».
-
-У крупных систем может существовать функциональность, которая не раскрывается публично.
-
-Поэтому сравниваем не скрытую внутреннюю архитектуру, а **то, что мы можем реально построить и продемонстрировать**.
-
-| Возможность                                  | Legal AI Assistant   |
-| -------------------------------------------- | -------------------- |
-| Юридический вопрос → структурированный ответ | Да                   |
-| Внутренний юридический корпус                | Да                   |
-| Внешние официальные источники                | Да                   |
-| Динамическое подключение внешнего поиска     | Да                   |
-| Международный поиск по запросу юриста        | Да                   |
-| Поиск на языке оригинала                     | Да                   |
-| Hybrid lexical + semantic retrieval          | Да                   |
-| CrossEncoder reranking                       | Да                   |
-| Version-aware retrieval                      | Да                   |
-| Provenance                                   | Да                   |
-| Exact quote extraction                       | Да                   |
-| Claim → Evidence mapping                     | Да                   |
-| Citation verification                        | Да                   |
-| URL verification                             | Да                   |
-| Version verification                         | Да                   |
-| Source freshness monitoring                  | Да                   |
-| Golden Dataset                               | Да                   |
-| Reproducible evaluation                      | Да                   |
-| Автоматическая подготовка документов         | Да                   |
-| Private corpus                               | Да, в roadmap        |
-| Production-scale infrastructure              | После финансирования |
-
----
-
-# 42. Где находится наша практическая дифференциация
-
-Мы не пытаемся конкурировать количеством документов с многолетними правовыми информационными системами.
-
-Наша проектная дифференциация:
-
-```text
-                    LEGAL QUESTION
-                          │
-                          ▼
-                 RESEARCH ORCHESTRATOR
-                          │
-       ┌──────────────────┼──────────────────┐
-       ▼                  ▼                  ▼
-   EXTERNAL            INTERNAL            GLOBAL
-   SOURCES              CORPUS             PRACTICE
-       │                  │                  │
-       └──────────────────┼──────────────────┘
-                          ▼
-                   HYBRID RETRIEVAL
-                          │
-                          ▼
-                      RERANKING
-                          │
-                          ▼
-                    EXACT EVIDENCE
-                          │
-                          ▼
-                 CLAIM → EVIDENCE
-                          │
-                          ▼
-                     VERIFICATION
-                          │
-                          ▼
-                    LEGAL ANSWER
-                          │
-                          ▼
-                  DOCUMENT DRAFT
-```
-
-То есть проект объединяет:
-
-**Multi-Agent Research + Multi-Source Retrieval + Evidence Grounding + Verification + Legal Reasoning + Document Drafting.**
-
----
-
-# 43. Что действительно можно доказать на MVP
-
-Мы не должны пытаться доказать:
-
-> «Legal AI Assistant лучше КонсультантПлюс».
-
-Вместо этого проект должен доказать воспроизводимыми экспериментами:
+# 20. Метрики пилота
 
 ### Retrieval
+
+* Precision@K
+* Recall@K
+* MRR
+* NDCG@K
+
+### Evidence
+
+* Citation Accuracy
+* Citation Completeness
+* Source Correctness
+* URL Correctness
+* Evidence Support
+
+### Generation
+
+* Groundedness
+* Factual Consistency
+* Legal Basis Coverage
+* Conditions Coverage
+* Exception Coverage
+* Unsupported Claim Rate
+
+### Pipeline
+
+* latency;
+* parsing errors;
+* index size;
+* retrieval time;
+* inference time.
+
+Особенно важна метрика:
+
+> **Unsupported Claim Rate**
+
+То есть доля существенных утверждений, для которых система не смогла найти достаточную доказательную базу.
+
+---
+
+# 21. Конкуренты
+
+На рынке уже существуют зрелые LegalTech-продукты с AI-функциями.
+
+По публичным описаниям продуктов:
+
+### КонсультантПлюс
+
+ИИ-помощник включает сервисы «Задать вопрос», «Глубокий поиск» и «Проверка договоров».
+
+«Глубокий поиск» анализирует множество НПА и судебной практики, формирует структурированный ответ, правовые основания, анализ и рекомендации.
+
+### ГАРАНТ / ИСКРА
+
+ИСКРА отвечает на правовые вопросы, использует базу ГАРАНТ, предоставляет ссылки на правовые акты, помогает создавать документы и анализировать судебные акты. В материалах ГАРАНТ также описывается работа ИСКРЫ с нормативно-технической документацией.
+
+### Caselook
+
+Caselook специализируется на поиске и анализе судебной практики. Публично заявлены большая база судебных документов, фильтры, мониторинг практики и AI-функции для анализа и подготовки документов.
+
+---
+
+# 22. Чем отличается наш пилот
+
+Мы не ставим задачу доказать, что существующие LegalTech-системы не используют какие-либо из этих технологий.
+
+Их внутренние архитектуры полностью публично не раскрываются.
+
+Поэтому сравниваем именно **архитектурную концепцию нашего пилота с публично описанными возможностями продуктов**.
+
+Фокус нашего проекта:
+
+| Направление               | Legal AI Assistant     |
+| ------------------------- | ---------------------- |
+| Internal corpus           | Да                     |
+| External sources          | Отдельный агент        |
+| Global legal practice     | Отдельный агент        |
+| Hybrid retrieval          | FTS5/BM25 + embeddings |
+| Semantic retrieval        | E5 + FAISS             |
+| Reranking                 | CrossEncoder           |
+| Version-aware retrieval   | Да                     |
+| Provenance                | Да                     |
+| Exact evidence extraction | Да                     |
+| Claim → Evidence          | Да                     |
+| Citation verification     | Да                     |
+| URL verification          | Да                     |
+| Version verification      | Да                     |
+| Golden Dataset            | Да                     |
+| Retrieval evaluation      | Да                     |
+| Evidence evaluation       | Да                     |
+| Research → Document       | Да                     |
+
+Основная особенность пилота:
+
+> **Мы строим не просто интерфейс для юридического вопроса, а воспроизводимый pipeline юридического исследования с отдельным evidence layer и технической проверкой результата.**
+
+---
+
+# 23. Связь с GeniusScout
+
+Legal AI Assistant является следующим развитием опыта, полученного при разработке **GeniusScout**.
+
+В GeniusScout были отработаны:
+
+```text
+Data
+ ↓
+Retrieval
+ ↓
+Embeddings
+ ↓
+Vector Search
+ ↓
+Reranking
+ ↓
+RAG
+ ↓
+Answer
+```
+
+В Legal AI Assistant эта схема расширяется:
+
+```text
+Legal Query
+      ↓
+Query Understanding
+      ↓
+Multi-Agent Routing
+      ↓
+Multi-Source Retrieval
+      ↓
+Hybrid Search
+      ↓
+Reranking
+      ↓
+Evidence Builder
+      ↓
+Claim → Evidence
+      ↓
+Verification
+      ↓
+Legal Reasoning
+      ↓
+Answer / Document
+```
+
+Таким образом, проект демонстрирует переход:
+
+**от общего RAG-приложения к специализированной AI-системе для юридического research workflow.**
+
+---
+
+# 24. План реализации пилота
+
+## Этап 1 — Corpus
+
+Подготовить небольшой юридический корпус.
+
+```text
+Documents
+    ↓
+Parsing
+    ↓
+Normalization
+    ↓
+Metadata
+    ↓
+SQLite
+```
+
+## Этап 2 — Lexical Retrieval
+
+Реализовать:
+
+```text
+SQLite FTS5
++
+BM25
+```
+
+## Этап 3 — Semantic Retrieval
+
+Добавить:
+
+```text
+E5
+ ↓
+Embeddings
+ ↓
+FAISS
+```
+
+## Этап 4 — Hybrid Retrieval
+
+Объединить:
+
+```text
+BM25
++
+Semantic Search
+```
+
+## Этап 5 — Reranking
+
+Добавить CrossEncoder.
+
+## Этап 6 — Evidence Builder
+
+Извлекать точные фрагменты документов.
+
+## Этап 7 — Verification
+
+Проверять:
+
+```text
+Quote
+Metadata
+URL
+Version
+Evidence support
+```
+
+## Этап 8 — Orchestrator
+
+Подключить четыре логических агента.
+
+## Этап 9 — LLM
+
+Подключить одну генеративную модель.
+
+## Этап 10 — Document Drafting
+
+Добавить генерацию юридического документа на основе research result.
+
+## Этап 11 — Evaluation
+
+Создать Golden Dataset и сравнить:
 
 ```text
 BM25
@@ -1914,129 +1025,106 @@ vs
 Hybrid + CrossEncoder
 ```
 
-### Evidence
+и:
 
 ```text
-LLM citation
+LLM answer
 vs
-Exact Evidence Builder
-```
-
-### Versioning
-
-```text
-Current version retrieval
-vs
-Historical version retrieval
-```
-
-### Generation
-
-```text
-LLM without evidence
-vs
-Evidence-grounded generation
-```
-
-### Verification
-
-```text
-Generated answer
-vs
-Verified answer
-```
-
-Именно такие эксперименты можно разместить в GitHub.
-
----
-
-# 44. Ключевая гипотеза проекта
-
-> **Юридический AI должен быть не просто генератором текста, а системой исследования, в которой каждый существенный вывод можно проследить до конкретного проверяемого источника.**
-
-Полный pipeline:
-
-```text
-QUESTION
-   ↓
-UNDERSTAND
-   ↓
-PLAN
-   ↓
-SEARCH
-   ↓
-RETRIEVE
-   ↓
-RERANK
-   ↓
-EXTRACT EVIDENCE
-   ↓
-REASON
-   ↓
-VERIFY
-   ↓
-ANSWER
-   ↓
-DRAFT DOCUMENT
+Evidence-grounded answer
 ```
 
 ---
 
-# 45. Итог
+# 25. Что должно получиться в результате
 
-Legal AI Assistant — это не попытка заменить существующие правовые информационные системы.
-
-Это проект **evidence-grounded multi-agent legal research system**, который может объединить:
+Пилот должен позволять продемонстрировать один полный сценарий:
 
 ```text
-External Sources
-       +
-Internal Legal Knowledge
-       +
-International Practice
-       +
-Hybrid Retrieval
-       +
-Reranking
-       +
-Version Management
-       +
-Provenance
-       +
-Evidence Extraction
-       +
-Claim Verification
-       +
-Legal Reasoning
-       +
-Document Drafting
+Юрист
+  ↓
+Задаёт вопрос
+  ↓
+Legal AI Assistant
+  ↓
+Определяет задачу
+  ↓
+Выбирает источники
+  ↓
+Ищет документы
+  ↓
+Объединяет результаты
+  ↓
+Ранжирует документы
+  ↓
+Извлекает доказательства
+  ↓
+Строит Claim → Evidence
+  ↓
+Проверяет источники
+  ↓
+Формирует юридический анализ
+  ↓
+Показывает источники
+  ↓
+При необходимости
+  ↓
+Создаёт документ
 ```
 
-Главный принцип:
+---
 
-> **Система должна не просто найти ответ, а показать, почему этот ответ был сформирован, на каком документе он основан, какая редакция использована и где находится точный фрагмент первоисточника.**
+# 26. Что мы хотим доказать этим проектом
 
-А масштабирование проекта после финансирования происходит не через изменение основной концепции, а через увеличение:
+Пилот не должен доказывать, что AI может заменить юриста.
 
-* количества источников;
-* объёма корпуса;
-* вычислительных ресурсов;
-* количества языков;
-* качества моделей;
-* глубины экспертной оценки;
-* уровня безопасности;
-* числа корпоративных интеграций.
+Он должен показать инженерную гипотезу:
 
-**Итоговая архитектурная формула проекта:**
+> **Юридический AI становится существенно более контролируемым, если разделить поиск, evidence extraction, verification и generation, а не передавать всю задачу одной LLM.**
+
+Именно эту архитектуру мы будем реализовывать и измерять.
+
+---
+
+# 27. Ограничения пилота
+
+Пилот не заявляет:
+
+* 100% юридическую точность;
+* полное покрытие российского законодательства;
+* полное покрытие судебной практики;
+* абсолютную актуальность всех внешних источников;
+* отсутствие ошибок LLM;
+* автоматическое принятие юридических решений;
+* замену профессионального юриста.
+
+Корректная формулировка:
+
+> **Legal AI Assistant автоматически выполняет первичное юридическое исследование по подключённому и версионированному корпусу, формирует доказательную базу и технически проверяет согласованность результата. Финальная юридическая оценка и решение остаются за профессиональным пользователем.**
+
+---
+
+# 28. Итоговая концепция
+
+Legal AI Assistant объединяет:
 
 ```text
-Multi-Agent Legal Research
+Multi-Agent Research
         +
 Multi-Source Retrieval
         +
-Version-Aware Knowledge
+Hybrid Search
+        +
+Semantic Retrieval
+        +
+Reranking
         +
 Evidence Grounding
+        +
+Version Awareness
+        +
+Provenance
+        +
+Claim → Evidence
         +
 Verification
         +
@@ -2045,4 +1133,22 @@ Legal Reasoning
 Document Drafting
 ```
 
-> **Legal AI Assistant — от юридического вопроса к проверяемому исследованию и готовому рабочему документу.**
+При этом первая версия проекта остаётся доступной для разработки без мощного локального компьютера:
+
+```text
+GitHub
+   +
+Google Colab
+   +
+Python
+   +
+Open-source NLP stack
+   +
+одна LLM
+```
+
+Главный результат пилота — не количество документов и не размер модели.
+
+Главный результат:
+
+> **воспроизводимый и измеримый pipeline, который показывает, как AI может выполнять юридическое исследование на основе проверяемых источников и доказательств.**
